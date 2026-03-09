@@ -151,70 +151,36 @@
 </head>
 
 <body>
-
-
-<canvas id="ecgChart" width="800" height="400"></canvas>
-<h3>BPM: <span id="bpmValue">--</span></h3>
-<h3 style="color:red;">Alert: <span id="alertValue">Normal</span></h3>
+  
+  <canvas id="emgChart"></canvas>
 
 <script>
+const firebaseURL = "https://emg-monitoring-system-default-rtdb.asia-southeast1.firebasedatabase.app/emg.json";
 
-// Firebase config
-var firebaseConfig = {
-  apiKey: "AIzaSyCtq-qeqckZl8fW25qgDYUALL_kfZg71VM",
-  databaseURL: "https://ecg-monitoring-system-3cd37-default-rtdb.asia-southeast1.firebasedatabase.app"
-};
+const ctx = document.getElementById('emgChart').getContext('2d');
+const chartData = { labels: [], datasets: [{ label: 'EMG', data: [], borderColor: 'red', fill:false, tension:0.2 }] };
+const chart = new Chart(ctx, { type:'line', data: chartData, options:{ animation:false, scales:{ y:{ beginAtZero:true, suggestedMax:1024 }}}});
 
-firebase.initializeApp(firebaseConfig);
-var database = firebase.database();
-
-var ctx = document.getElementById('ecgChart').getContext('2d');
-
-var ecgData = [];
-var labels = [];
-
-var chart = new Chart(ctx, {
-  type: 'line',
-  data: {
-    labels: labels,
-    datasets: [{
-      label: 'ECG Signal',
-      data: ecgData,
-      borderWidth: 1,
-      fill: false
-    }]
-  },
-  options: {
-    animation: false,
-    scales: {
-      x: { display: false }
+async function fetchEMG() {
+  try {
+    const response = await fetch(firebaseURL);
+    const data = await response.json();
+    if(data){
+      chartData.labels = [];
+      chartData.datasets[0].data = [];
+      Object.values(data).forEach(point => {
+        chartData.labels.push('');
+        chartData.datasets[0].data.push(point.value);
+      });
+      chart.update();
     }
+  } catch(e){
+    console.log("Error fetching EMG:", e);
   }
-});
+}
 
-// Realtime waveform
-database.ref("/ECG/Waveform").limitToLast(100).on("child_added", function(snapshot) {
-    ecgData.push(snapshot.val());
-    labels.push("");
-
-    if (ecgData.length > 100) {
-        ecgData.shift();
-        labels.shift();
-    }
-
-    chart.update();
-});
-
-// BPM update
-database.ref("/ECG/BPM").on("value", function(snapshot) {
-    document.getElementById("bpmValue").innerText = snapshot.val();
-});
-
-// Alert update
-database.ref("/ECG/Alert").on("value", function(snapshot) {
-    document.getElementById("alertValue").innerText = snapshot.val();
-});
-
+// Update every 100ms
+setInterval(fetchEMG, 100);
 </script>
 </body>
             <!-- end title -->
